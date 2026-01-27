@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcard by Dino</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Hamburger Menu Button -->
+    <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+    </button>
+
+    <!-- User Login/Profile Button -->
+    <button class="user-login-btn" id="user-login-btn" onclick="handleUserBtnClick()">
+        <span id="user-btn-icon">👤</span>
+    </button>
+
+    <!-- Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="close-sidebar-btn" onclick="closeSidebar()"></button>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-btn active" onclick="showSection('library'); closeSidebar()">
+                <span class="nav-icon">📚 </span>
+                Thư viện của bạn
+            </button>
+            <button class="nav-btn" onclick="showSection('create'); closeSidebar()">
+                <span class="nav-icon">✨</span>
+                Tạo thẻ mới
+            </button>
+        </nav>
+        <div class="sidebar-footer">
+            <p>Made by ❤️ Dino</p>
+        </div>
+    </div>
+
+    <div class="main">
+
+        <div id="library" class="section">
+            <h1>Thư viện của bạn</h1>
+            <div id="deck-list" class="deck-grid">
+            </div>
+            <p id="empty-msg" style="text-align:center; margin-top:50px; color:#888;">Chưa có học phần nào. Hãy tạo mới!
+            </p>
+        </div>
+
+
+        <div id="create" class="section hidden">
+            <h1>Tạo thẻ mới</h1>
+            <div class="input-group">
+                <input type="text" id="deck-title" placeholder="Nhập tiêu đề"
+                    style="font-size: 18px; font-weight: bold;">
+                <br>
+                <div style="margin-top: 10px;">
+                    <label>Nhập nhanh từ văn bản (Định dạng: Thuật ngữ - Định nghĩa):</label>
+                    <textarea id="import-text" rows="3" placeholder="Apple - Quả táo&#10;Book - Quyển sách"></textarea>
+                    <button class="btn btn-secondary" onclick="importText()">Nhập dữ liệu</button>
+                </div>
+            </div>
+
+            <div id="card-list-builder">
+            </div>
+
+            <button class="btn" onclick="addCardInput()">Thêm thẻ</button>
+            <hr>
+            <button class="btn btn-primary-large" id="save-deck-btn" onclick="saveDeck()">Tạo học phần</button>
+        </div>
+
+        <div id="study" class="section hidden">
+            <div class="header-actions" style="z-index: 100; margin-top: 40px;">
+                <button class="btn btn-secondary" onclick="showSection('library')">← Quay lại</button>
+                <h2 id="study-title" style="text-align: center; flex: 1; margin: 0 10px;"></h2>
+                <div style="position: relative; display: flex; gap: 10px;">
+                    <button class="menu-btn" onclick="openSettings()">⚙️</button>
+                    <button class="menu-btn" onclick="toggleMenu()">⋮</button>
+                    <div class="dropdown-menu" id="study-menu">
+                        <div class="dropdown-item" onclick="editDeckAction()"><span>✏️</span> Sửa thẻ</div>
+                        <div class="dropdown-item" onclick="duplicateDeckAction()"><span>📄</span> Tạo bản sao</div>
+                        <div class="dropdown-item" onclick="printDeckAction()"><span>🖨️</span> In</div>
+                        <div class="dropdown-item" onclick="mergeDeckAction()"><span>🔗</span> Ghép bài</div>
+                        <div class="dropdown-item" onclick="exportDeckAction()"><span>📤</span> Xuất</div>
+                        <div class="dropdown-item" onclick="embedDeckAction()"><span>📁</span> Nhúng</div>
+                        <div class="dropdown-item" style="color: #ef4444;" onclick="deleteDeckAction()"><span>🗑️</span>
+                            Xóa</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Counter -->
+            <div class="progress-container" id="progress-container">
+                <div class="progress-stats">
+                    <span class="stat-known">✅ Đã biết: <strong id="known-count">0</strong></span>
+                    <span class="stat-unknown">❌ Chưa biết: <strong id="unknown-count">0</strong></span>
+                    <span class="stat-total">📊 Tổng: <strong id="total-count">0</strong></span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="mode-controls" id="mode-controls">
+                <span class="mode-label">🎮 Chế độ học: </span>
+                <div class="mode-buttons">
+                    <button class="btn mode-btn" onclick="startMode('flashcard')">🃏 Flashcard</button>
+                    <button class="btn mode-btn" onclick="startMode('quiz')">📝 Trắc nghiệm</button>
+                    <button class="btn mode-btn" onclick="startMode('write')">✍️ Viết lại</button>
+                    <button class="btn mode-btn" onclick="startMode('truefalse')">✔️ Đúng/Sai</button>
+                    <button class="btn mode-btn" onclick="startMode('match')">🧩 Ghép thẻ</button>
+                    <button class="btn mode-btn btn-rainbow" onclick="startMode('random')">🎲 Kiểm tra ngẫu
+                        nhiên</button>
+                </div>
+            </div>
+
+            <div id="active-mode-header" class="hidden" style="margin-bottom: 20px;">
+                <button class="btn btn-secondary" onclick="exitStudyMode()">← Quay lại chọn chế độ</button>
+            </div>
+
+            <div id="game-area">
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="sidebar-overlay" id="settings-modal"
+        style="z-index: 2000; transition: all 0.3s; display: flex; align-items: center; justify-content: center;">
+        <div class="modal-content"
+            style="background: var(--bg-card); padding: 30px; border-radius: 16px; width: 95%; max-width: 700px; position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">⚙️ Cài đặt</h2>
+                <button class="btn btn-secondary" onclick="closeSettings()" style="padding: 8px 15px;">✕</button>
+            </div>
+
+            <div class="settings-sections">
+                <div class="settings-section">
+                    <h3 class="section-title">📊 Số lượng & Vòng chơi</h3>
+                    <div class="settings-grid">
+                        <div class="setting-item">
+                            <label>Vòng chơi (Ghép thẻ):</label>
+                            <input type="number" id="set-match-rounds" min="1" max="10" value="1">
+                        </div>
+                        <div class="setting-item">
+                            <label>Số cặp thẻ (Tối đa 6):</label>
+                            <input type="number" id="set-match-count" min="2" max="6" value="6">
+                        </div>
+                        <div class="setting-item">
+                            <label>Số câu Trắc nghiệm:</label>
+                            <input type="number" id="set-quiz-count" min="1" value="10">
+                        </div>
+                        <div class="setting-item">
+                            <label>Số câu Viết lại:</label>
+                            <input type="number" id="set-write-count" min="1" value="10">
+                        </div>
+                        <div class="setting-item">
+                            <label>Số câu Đúng/Sai:</label>
+                            <input type="number" id="set-tf-count" min="1" value="10">
+                        </div>
+                        <div class="setting-item">
+                            <label>Số câu Ngẫu nhiên:</label>
+                            <input type="number" id="set-random-count" min="1" max="50" value="10">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">⌨️ Phím tắt bàn phím</h3>
+                    <div class="shortcuts-container">
+                        <div class="shortcut-group">
+                            <h4>🃏 Flashcard</h4>
+                            <div class="shortcut-item">
+                                <span>Đã biết:</span>
+                                <button class="shortcut-btn" id="sc-fc-known"
+                                    onclick="captureHotkey('fc-known')">ArrowRight</button>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Chưa biết:</span>
+                                <button class="shortcut-btn" id="sc-fc-unknown"
+                                    onclick="captureHotkey('fc-unknown')">ArrowLeft</button>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Lật thẻ:</span>
+                                <button class="shortcut-btn" id="sc-fc-flip"
+                                    onclick="captureHotkey('fc-flip')">Space</button>
+                            </div>
+                        </div>
+
+                        <div class="shortcut-group">
+                            <h4>✔️ Đúng/Sai</h4>
+                            <div class="shortcut-item">
+                                <span>Đúng:</span>
+                                <button class="shortcut-btn" id="sc-tf-true"
+                                    onclick="captureHotkey('tf-true')">ArrowLeft</button>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Sai:</span>
+                                <button class="shortcut-btn" id="sc-tf-false"
+                                    onclick="captureHotkey('tf-false')">ArrowRight</button>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Tiếp theo:</span>
+                                <button class="shortcut-btn" id="sc-tf-next"
+                                    onclick="captureHotkey('tf-next')">Enter</button>
+                            </div>
+                        </div>
+
+                        <div class="shortcut-group">
+                            <h4>✍️ Viết lại</h4>
+                            <div class="shortcut-item">
+                                <span>Tiếp theo:</span>
+                                <button class="shortcut-btn" id="sc-w-next"
+                                    onclick="captureHotkey('w-next')">Enter</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="closeSettings()">Hủy</button>
+                <button class="btn" onclick="saveSettings()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Overlay -->
+    <div id="auth-overlay" class="auth-overlay hidden">
+        <div class="auth-card" style="position: relative;">
+            <button class="close-auth-btn"
+                onclick="document.getElementById('auth-overlay').classList.add('hidden')">✕</button>
+            <h1 class="auth-title">Flashcard Dino 🦕</h1>
+            <p class="auth-subtitle">Đăng nhập để lưu và đồng bộ dữ liệu của bạn mọi nơi.</p>
+
+            <!-- Error Message -->
+            <div id="auth-error" class="auth-error hidden"></div>
+
+            <!-- Login Form -->
+            <div id="login-section">
+                <form onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label>Tên đăng nhập</label>
+                        <input type="text" id="login-username" required placeholder="Nhập tên đăng nhập">
+                    </div>
+                    <div class="form-group">
+                        <label>Mật khẩu</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="login-password" required placeholder="••••••••">
+                            <span class="toggle-icon" onclick="togglePassword('login-password', this)">👁️</span>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary-large" style="margin-top: 10px;">Đăng nhập</button>
+                </form>
+                <div class="auth-footer">
+                    Chưa có tài khoản? <a href="#" onclick="toggleAuthMode()">Đăng ký ngay</a>
+                </div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-section" class="hidden">
+                <form onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label>Tên đăng nhập</label>
+                        <input type="text" id="reg-username" required placeholder="Nhập tên đăng nhập">
+                    </div>
+                    <div class="form-group">
+                        <label>Mật khẩu</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="reg-password" required placeholder="••••••••">
+                            <span class="toggle-icon" onclick="togglePassword('reg-password', this)">👁️</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Nhập lại mật khẩu</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="reg-confirm-password" required placeholder="••••••••">
+                            <span class="toggle-icon" onclick="togglePassword('reg-confirm-password', this)">👁️</span>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary-large" style="margin-top: 10px;">Đăng ký</button>
+                </form>
+                <div class="auth-footer">
+                    Đã có tài khoản? <a href="#" onclick="toggleAuthMode()">Đăng nhập</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Config & Global State -->
+    <script src="js/config.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/card.js"></script>
+    <script src="js/library.js"></script>
+    <script src="js/menu.js"></script>
+    <script src="js/setting.js"></script>
+    <script src="js/event.js"></script>
+
+    <!-- Study Modes -->
+    <script src="js/modes/flashcard.js"></script>
+    <script src="js/modes/quiz.js"></script>
+    <script src="js/modes/write.js"></script>
+    <script src="js/modes/truefalse.js"></script>
+    <script src="js/modes/match.js"></script>
+    <script src="js/modes/random.js"></script>
+
+    <!-- Main Initializer -->
+    <script src="js/main.js"></script>
+</body>
+
+</html>
