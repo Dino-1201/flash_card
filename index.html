@@ -19,7 +19,7 @@
 
     <!-- User Login/Profile Button -->
     <button class="user-login-btn" id="user-login-btn" onclick="handleUserBtnClick()">
-        <span id="user-btn-icon">👤</span>
+        <span id=n-iconuser-bt>👤</span>
     </button>
 
     <!-- Overlay -->
@@ -36,11 +36,11 @@
             </button>
             <button class="nav-btn" onclick="showSection('create'); closeSidebar()">
                 <span class="nav-icon">✨</span>
-                Tạo thẻ mới
+                Tạo thẻ
             </button>
         </nav>
         <div class="sidebar-footer">
-            <p>Made by ❤️ Dino</p>
+            <p>Made by Dino</p>
         </div>
     </div>
 
@@ -72,8 +72,8 @@
             </div>
 
             <button class="btn" onclick="addCardInput()">Thêm thẻ</button>
-            <hr>
-            <button class="btn btn-primary-large" id="save-deck-btn" onclick="saveDeck()">Tạo học phần</button>
+            <br>
+            <button class="btn btn-primary-large" id="save-deck-btn" onclick="saveDeck()">Xác Nhận</button>
         </div>
 
         <div id="study" class="section hidden">
@@ -91,7 +91,7 @@
                         <div class="dropdown-item" onclick="exportDeckAction()"><span>📤</span> Xuất</div>
                         <div class="dropdown-item" onclick="embedDeckAction()"><span>📁</span> Nhúng</div>
                         <div class="dropdown-item" style="color: #ef4444;" onclick="deleteDeckAction()"><span>🗑️</span>
-                            Xóa</div>
+                            <div>Xóa</div>
                     </div>
                 </div>
             </div>
@@ -256,8 +256,23 @@
                             <span class="toggle-icon" onclick="togglePassword('login-password', this)">👁️</span>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary-large" style="margin-top: 10px;">Đăng nhập</button>
+                    <button type="submit" class="btn btn-primary-large" style="margin-top: 10px; width: 100%;">Đăng nhập</button>
                 </form>
+
+                <div class="social-login-divider">
+                    <span>HOẶC</span>
+                </div>
+                <div class="social-login-buttons">
+                    <button class="btn btn-google" onclick="loginWithGoogle()">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo" style="width: 20px; height: 20px; margin-right: 10px;">
+                        Đăng nhập với Google
+                    </button>
+                    <button class="btn btn-facebook" onclick="loginWithFacebook()">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png" alt="Facebook Logo" style="width: 20px; height: 20px; margin-right: 10px;">
+                        Đăng nhập với Facebook
+                    </button>
+                </div>
+
                 <div class="auth-footer">
                     Chưa có tài khoản? <a href="#" onclick="toggleAuthMode()">Đăng ký ngay</a>
                 </div>
@@ -267,11 +282,15 @@
             <div id="register-section" class="hidden">
                 <form onsubmit="handleRegister(event)">
                     <div class="form-group">
-                        <label>Tên đăng nhập</label>
+                        <label>Tên để dùng (Name)</label>
+                        <input type="text" id="reg-name" required placeholder="Nhập tên hiển thị của bạn">
+                    </div>
+                    <div class="form-group">
+                        <label>Tên đăng nhập (Username)</label>
                         <input type="text" id="reg-username" required placeholder="Nhập tên đăng nhập">
                     </div>
                     <div class="form-group">
-                        <label>Mật khẩu</label>
+                        <label>Mật khẩu (Password)</label>
                         <div class="password-wrapper">
                             <input type="password" id="reg-password" required placeholder="••••••••">
                             <span class="toggle-icon" onclick="togglePassword('reg-password', this)">👁️</span>
@@ -284,14 +303,35 @@
                             <span class="toggle-icon" onclick="togglePassword('reg-confirm-password', this)">👁️</span>
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-primary-large" style="margin-top: 10px;">Đăng ký</button>
+                    <button type="submit" class="btn btn-primary-large" style="margin-top: 10px; width: 100%;">Đăng ký</button>
                 </form>
+                
+                <div class="social-login-divider">
+                    <span>HOẶC</span>
+                </div>
+                <div class="social-login-buttons">
+                    <button class="btn btn-google" onclick="loginWithGoogle()">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo" style="width: 20px; height: 20px; margin-right: 10px;">
+                        Đăng ký với Google
+                    </button>
+                    <button class="btn btn-facebook" onclick="loginWithFacebook()">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png" alt="Facebook Logo" style="width: 20px; height: 20px; margin-right: 10px;">
+                        Đăng ký với Facebook
+                    </button>
+                </div>
+
                 <div class="auth-footer">
                     Đã có tài khoản? <a href="#" onclick="toggleAuthMode()">Đăng nhập</a>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
 
     <!-- Config & Global State -->
     <script src="js/config.js"></script>
