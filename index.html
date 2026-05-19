@@ -327,11 +327,26 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js"></script>
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <!-- Facebook SDK -->
+    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/vi_VN/sdk.js"></script>
+    
+    <script>
+        // Cấu hình Client IDs
+        const GOOGLE_CLIENT_ID = '123456789-example.apps.googleusercontent.com'; // Thay bằng Client ID thật
+        const FACEBOOK_APP_ID = '123456789012345'; // Thay bằng App ID thật
+
+        window.fbAsyncInit = function() {
+            FB.init({
+                appId      : FACEBOOK_APP_ID,
+                cookie     : true,
+                xfbml      : true,
+                version    : 'v19.0'
+            });
+        };
+    </script>
 
     <!-- Config & Global State -->
     <script src="js/config.js"></script>

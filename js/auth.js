@@ -230,48 +230,72 @@ async function handleRegister(e) {
 }
 
 // ============================================================
-// SOCIAL LOGIN (Firebase - giữ nguyên logic cũ)
+// SOCIAL LOGIN (Google & Facebook)
 // ============================================================
+
+// Xử lý chung sau khi có access_token từ MXH
+async function handleSocialLoginSuccess(provider, tokenOrCredential) {
+    showAuthError('');
+    const btnGoogle = document.querySelector('.btn-google');
+    const btnFacebook = document.querySelector('.btn-facebook');
+    
+    if (btnGoogle) btnGoogle.disabled = true;
+    if (btnFacebook) btnFacebook.disabled = true;
+
+    // Gửi token lên backend
+    const result = await apiCall(`/auth/${provider}`, 'POST', { token: tokenOrCredential });
+
+    if (btnGoogle) btnGoogle.disabled = false;
+    if (btnFacebook) btnFacebook.disabled = false;
+
+    if (result.ok) {
+        localStorage.setItem('fc_token', result.token);
+        currentUser = result.user;
+        saveCurrentSession();
+        alert(`🎉 Chào mừng ${currentUser.name}!`);
+        location.reload();
+    } else {
+        showAuthError(result.message || `Đăng nhập ${provider} thất bại!`);
+    }
+}
+
+// Gọi hàm này khi Google GSI trả về credential
+function handleGoogleCredential(response) {
+    if (response.credential) {
+        handleSocialLoginSuccess('google', response.credential);
+    }
+}
+
 function loginWithGoogle() {
-    if (typeof auth !== 'undefined') {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        auth.signInWithPopup(provider).then((result) => {
-            const user = result.user;
-            currentUser = { username: user.email, name: user.displayName, isFirebase: true, uid: user.uid };
-            localStorage.setItem('fc_token', '');
-            saveCurrentSession();
-            location.reload();
-        }).catch((error) => {
-            showAuthError("Lỗi đăng nhập Google: " + error.message);
+    // Kích hoạt popup đăng nhập Google One Tap hoặc Standard
+    if (typeof google !== 'undefined') {
+        google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredential
+        });
+        google.accounts.id.prompt((notification) => {
+            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                // Rơi vào trường hợp trình duyệt chặn popup, ta có thể thử render nút chuẩn hoặc báo lỗi
+                showAuthError("Không thể mở cửa sổ Google. Hãy đảm bảo bạn không chặn popup!");
+            }
         });
     } else {
-        const fakeEmail = prompt("Nhập email Google mô phỏng:");
-        if (fakeEmail) {
-            currentUser = { username: fakeEmail, name: "Google User" };
-            saveCurrentSession();
-            location.reload();
-        }
+        showAuthError("SDK Google chưa được tải!");
     }
 }
 
 function loginWithFacebook() {
-    if (typeof auth !== 'undefined') {
-        const provider = new firebase.auth.FacebookAuthProvider();
-        auth.signInWithPopup(provider).then((result) => {
-            const user = result.user;
-            currentUser = { username: user.email || user.uid, name: user.displayName, isFirebase: true, uid: user.uid };
-            saveCurrentSession();
-            location.reload();
-        }).catch((error) => {
-            showAuthError("Lỗi đăng nhập Facebook: " + error.message);
-        });
+    if (typeof FB !== 'undefined') {
+        FB.login(function(response) {
+            if (response.authResponse) {
+                // Lấy được Access Token, gửi lên backend
+                handleSocialLoginSuccess('facebook', response.authResponse.accessToken);
+            } else {
+                showAuthError("Bạn đã hủy đăng nhập Facebook.");
+            }
+        }, {scope: 'public_profile,email'});
     } else {
-        const fakeName = prompt("Nhập tên tài khoản Facebook mô phỏng:");
-        if (fakeName) {
-            currentUser = { username: fakeName.replace(/\s/g,'').toLowerCase(), name: fakeName };
-            saveCurrentSession();
-            location.reload();
-        }
+        showAuthError("SDK Facebook chưa được tải!");
     }
 }
 

@@ -3,6 +3,8 @@ const cors    = require('cors');
 const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const path    = require('path');
+const { OAuth2Client } = require('google-auth-library');
+const fetch   = require('node-fetch');
 const db      = require('./db');
 require('dotenv').config();
 
@@ -251,6 +253,135 @@ app.post('/api/auth/login', async (req, res) => {
 
     } catch (err) {
         console.error('Lỗi đăng nhập:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server!' });
+    }
+});
+
+// ============================================================
+// ROUTE: ĐĂNG NHẬP FACEBOOK
+// ============================================================
+app.post('/api/auth/facebook', async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) return res.status(400).json({ success: false, message: 'Thiếu token' });
+
+        // Gọi Graph API của Facebook để lấy thông tin
+        const fbRes = await fetch(`https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${token}`);
+        const fbData = await fbRes.json();
+
+        if (fbData.error) {
+            return res.status(401).json({ success: false, message: 'Token Facebook không hợp lệ!' });
+        }
+
+        const email = fbData.email || null;
+        const fbId = fbData.id;
+        const name = fbData.name;
+
+        // Tìm user theo firebase_uid (dùng chung cho ID mxh) hoặc email
+        let [rows] = await db.query('SELECT * FROM users WHERE firebase_uid = ? OR (email = ? AND email IS NOT NULL)', [fbId, email]);
+        
+        let userId;
+        let username;
+
+        if (rows.length > 0) {
+            // Đã tồn tại
+            const user = rows[0];
+            userId = user.id;
+            username = user.username;
+            // Cập nhật facebook ID nếu chưa có (trường hợp login bằng email local trước đó)
+            if (!user.firebase_uid) {
+                await db.query('UPDATE users SET firebase_uid = ?, auth_type = ? WHERE id = ?', [fbId, 'facebook', userId]);
+            }
+        } else {
+            // Chưa tồn tại -> Tạo mới
+            username = 'fb_' + fbId;
+            const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-8), 10);
+            
+            const [result] = await db.query(
+                `INSERT INTO users (name, username, email, password, auth_type, firebase_uid) 
+                 VALUES (?, ?, ?, ?, 'facebook', ?)`,
+                [name, username, email, randomPassword, fbId]
+            );
+            userId = result.insertId;
+        }
+
+        const jwtToken = jwt.sign(
+            { id: userId, username: username, name: name },
+            JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        );
+
+        res.json({
+            success: true,
+            message: 'Đăng nhập Facebook thành công!',
+            token: jwtToken,
+            user: { id: userId, name: name, username: username, email: email, auth_type: 'facebook' }
+        });
+
+    } catch (err) {
+        console.error('Lỗi đăng nhập FB:', err);
+        res.status(500).json({ success: false, message: 'Lỗi server!' });
+    }
+});
+
+// ============================================================
+// ROUTE: ĐĂNG NHẬP GOOGLE
+// ============================================================
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) return res.status(400).json({ success: false, message: 'Thiếu token' });
+
+        const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+        const payload = await response.json();
+
+        if (payload.error || !payload.sub) {
+            return res.status(401).json({ success: false, message: 'Token Google không hợp lệ!' });
+        }
+
+        const email = payload.email || null;
+        const googleId = payload.sub;
+        const name = payload.name;
+
+        let [rows] = await db.query('SELECT * FROM users WHERE firebase_uid = ? OR (email = ? AND email IS NOT NULL)', [googleId, email]);
+        
+        let userId;
+        let username;
+
+        if (rows.length > 0) {
+            const user = rows[0];
+            userId = user.id;
+            username = user.username;
+            if (!user.firebase_uid) {
+                await db.query('UPDATE users SET firebase_uid = ?, auth_type = ? WHERE id = ?', [googleId, 'google', userId]);
+            }
+        } else {
+            username = 'gg_' + googleId;
+            const randomPassword = await bcrypt.hash(Math.random().toString(36).slice(-8), 10);
+            
+            const [result] = await db.query(
+                `INSERT INTO users (name, username, email, password, auth_type, firebase_uid) 
+                 VALUES (?, ?, ?, ?, 'google', ?)`,
+                [name, username, email, randomPassword, googleId]
+            );
+            userId = result.insertId;
+        }
+
+        const jwtToken = jwt.sign(
+            { id: userId, username: username, name: name },
+            JWT_SECRET,
+            { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+        );
+
+        res.json({
+            success: true,
+            message: 'Đăng nhập Google thành công!',
+            token: jwtToken,
+            user: { id: userId, name: name, username: username, email: email, auth_type: 'google' }
+        });
+
+    } catch (err) {
+        console.error('Lỗi đăng nhập Google:', err);
         res.status(500).json({ success: false, message: 'Lỗi server!' });
     }
 });
