@@ -1,5 +1,7 @@
 // --- AUTHENTICATION LOGIC (MySQL Backend API) ---
 // API Server chạy tại: http://localhost:3001
+// → Để dùng nhiều thiết bị: thành IP thạt của server, ví dụ: 'http://192.168.1.100:3001'
+// → Khi deploy lên internet: đổi thành URL thạt, ví dụ: 'https://api.yourapp.com'
 
 const API_URL = 'http://localhost:3001/api';
 
@@ -28,33 +30,52 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 }
 
 // ============================================================
-// KHỞI TẠO AUTH
+// KHỞI TẠO AUTH (hỗ trợ multi-device qua JWT token)
 // ============================================================
-function initAuthListener() {
+async function initAuthListener() {
     const userBtn = document.getElementById('user-login-btn');
     const userIcon = document.getElementById('user-btn-icon');
 
-    if (currentUser) {
-        console.log("Logged In:", currentUser.username);
-        document.getElementById('auth-overlay').classList.add('hidden');
+    const token = localStorage.getItem('fc_token');
 
-        userIcon.style.display = 'block';
-        userIcon.innerText = (currentUser.name && currentUser.name[0] || currentUser.username[0]).toUpperCase();
-        userBtn.title = `Đang đăng nhập: ${currentUser.name || currentUser.username}. Nhấn để đăng xuất.`;
+    if (token) {
+        // Xác thực token với server → hoạt động trên MỌI thiết bị
+        const result = await apiCall('/auth/me');
 
-        // Load decks từ MySQL thông qua API
-        loadDecksFromDB();
+        if (result.ok && result.user) {
+            // Token hợp lệ → khôi phục phiên đăng nhập
+            currentUser = result.user;
+            saveCurrentSession(); // cache lại cho lần sau
 
-        updateSidebarUser(currentUser);
-        renderLibrary();
-    } else {
-        console.log("No User Session");
-        userIcon.style.display = 'block';
-        userIcon.innerText = '👤';
-        userBtn.title = "Đăng nhập";
-        document.getElementById('auth-overlay').classList.add('hidden');
-        renderLibrary();
+            console.log("✅ Đã khôi phục phiên đăng nhập:", currentUser.username);
+            document.getElementById('auth-overlay').classList.add('hidden');
+
+            userIcon.style.display = 'block';
+            userIcon.innerText = (currentUser.name && currentUser.name[0] || currentUser.username[0]).toUpperCase();
+            userBtn.title = `Đang đăng nhập: ${currentUser.name || currentUser.username}. Nhấn để đăng xuất.`;
+
+            // Load decks từ MySQL
+            await loadDecksFromDB();
+            updateSidebarUser(currentUser);
+            renderLibrary();
+            return;
+
+        } else {
+            // Token hết hạn hoặc không hợp lệ → xoá và yêu cầu đăng nhập lại
+            console.warn("⚠️ Token không hợp lệ hoặc đã hết hạn. Vui lòng đăng nhập lại.");
+            localStorage.removeItem('fc_token');
+            localStorage.removeItem('flashcard_current_user');
+            currentUser = null;
+        }
     }
+
+    // Chưa có token (hoặc token lỗi) → trạng thái chưa đăng nhập
+    console.log("No User Session");
+    userIcon.style.display = 'block';
+    userIcon.innerText = '👤';
+    userBtn.title = "Đăng nhập";
+    document.getElementById('auth-overlay').classList.add('hidden');
+    renderLibrary();
 }
 
 // ============================================================

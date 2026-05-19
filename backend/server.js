@@ -12,8 +12,31 @@ const JWT_SECRET = process.env.JWT_SECRET || 'flashcard_secret';
 // ============================================================
 // MIDDLEWARE
 // ============================================================
+
+// Danh sách các origin được phép (thêm domain/IP của bạn vào đây khi deploy)
+const ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'http://localhost:8080',
+    'null' // Cho phép mở file HTML trực tiếp (file://)
+];
+
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:5500', 'http://localhost:5500', 'null'],
+    origin: function(origin, callback) {
+        // Cho phép requests không có origin (mobile apps, curl, Postman)
+        if (!origin) return callback(null, true);
+
+        // Cho phép nếu origin nằm trong whitelist
+        if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+
+        // Cho phép toàn bộ mạng LAN (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+        if (/^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)\d+\.\d+(:\d+)?$/.test(origin)) {
+            return callback(null, true);
+        }
+
+        callback(new Error(`CORS blocked: ${origin}`));
+    },
     credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));

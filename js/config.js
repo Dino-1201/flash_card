@@ -1,6 +1,6 @@
 // --- STATE MANAGEMENT ---
 let users = JSON.parse(localStorage.getItem('flashcard_users')) || [];
-let currentUser = JSON.parse(localStorage.getItem('flashcard_current_user')) || null;
+let currentUser = null; // Sẽ được khôi phục qua API token (hỗ trợ multi-device)
 let decks = []; // Sẽ load khi login
 let currentDeck = null;
 let currentCards = [];
