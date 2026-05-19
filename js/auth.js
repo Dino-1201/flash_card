@@ -1,9 +1,19 @@
 // --- AUTHENTICATION LOGIC (MySQL Backend API) ---
-// API Server chạy tại: http://localhost:3001
-// → Để dùng nhiều thiết bị: thành IP thạt của server, ví dụ: 'http://192.168.1.100:3001'
-// → Khi deploy lên internet: đổi thành URL thạt, ví dụ: 'https://api.yourapp.com'
+// API URL tự động nhận diện:
+//   - Mở trên máy chủ (localhost/127.0.0.1) → dùng localhost:3001
+//   - Mở từ thiết bị khác qua IP/domain      → dùng cùng hostname, cổng 3001
+//
+// ⚠️  Thiết bị B phải truy cập file qua HTTP (Live Server hoặc địa chỉ IP),
+//     KHÔNG mở file:// trực tiếp từ ổ đĩa của thiết bị B.
 
-const API_URL = 'http://localhost:3001/api';
+const _hostname = window.location.hostname;
+const _serverPort = 3001;
+const _isLocal = (_hostname === 'localhost' || _hostname === '127.0.0.1' || _hostname === '');
+const API_URL = _isLocal
+    ? `http://localhost:${_serverPort}/api`
+    : `http://${_hostname}:${_serverPort}/api`;
+
+console.log('[Auth] API_URL =', API_URL);
 
 // ============================================================
 // HELPER: Gọi API
@@ -84,7 +94,19 @@ async function initAuthListener() {
 async function loadDecksFromDB() {
     const result = await apiCall('/decks');
     if (result.ok && result.decks) {
-        decks = result.decks;
+        // ✅ Normalize: server trả về front/back, frontend dùng term/def
+        decks = result.decks.map(deck => ({
+            ...deck,
+            cards: (deck.cards || []).map(card => ({
+                id:    card.id,
+                term:  card.front || card.term || '',
+                def:   card.back  || card.def  || '',
+                note:  card.note  || '',
+                img:   card.img   || '',
+                known: card.known || false,
+                position: card.position || 0
+            }))
+        }));
         console.log(`✅ Đã tải ${decks.length} bộ thẻ từ MySQL!`);
         renderLibrary();
     }
@@ -95,7 +117,20 @@ async function loadDecksFromDB() {
 // ============================================================
 async function saveDecksToDb() {
     if (!currentUser) return;
-    const result = await apiCall('/decks', 'PUT', { decks });
+
+    // ✅ Normalize: frontend dùng term/def, server cần front/back
+    const decksToSend = decks.map(deck => ({
+        ...deck,
+        cards: (deck.cards || []).map(card => ({
+            front: card.term || card.front || '',
+            back:  card.def  || card.back  || '',
+            note:  card.note || '',
+            img:   card.img  || '',
+            known: card.known || false
+        }))
+    }));
+
+    const result = await apiCall('/decks', 'PUT', { decks: decksToSend });
     if (result.ok) {
         console.log('✅ Đã lưu decks lên MySQL!');
     } else {

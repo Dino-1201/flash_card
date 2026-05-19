@@ -48,12 +48,23 @@ CREATE TABLE IF NOT EXISTS decks (
 CREATE TABLE IF NOT EXISTS cards (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     deck_id     INT             NOT NULL,
-    front       TEXT            NOT NULL COMMENT 'Mặt trước thẻ',
-    back        TEXT            NOT NULL COMMENT 'Mặt sau thẻ',
+    front       TEXT            NOT NULL COMMENT 'Mặt trước thẻ (term)',
+    back        TEXT            NOT NULL COMMENT 'Mặt sau thẻ (def)',
+    note        TEXT            DEFAULT NULL COMMENT 'Ghi chú thêm',
+    img         MEDIUMTEXT      DEFAULT NULL COMMENT 'Ảnh base64 (tuỳ chọn)',
+    known       TINYINT(1)      DEFAULT 0 COMMENT '1=Đã biết, 0=Chưa biết',
     position    INT             DEFAULT 0 COMMENT 'Thứ tự trong bộ thẻ',
     created_at  TIMESTAMP       DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- MIGRATION: Thêm cột mới nếu database đã tồn tại từ trước
+-- (Bỏ qua nếu cột đã có)
+-- ============================================================
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS note  TEXT         DEFAULT NULL;
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS img   MEDIUMTEXT   DEFAULT NULL;
+ALTER TABLE cards ADD COLUMN IF NOT EXISTS known TINYINT(1)   DEFAULT 0;
 
 -- ============================================================
 -- BẢNG USER_SESSIONS: Lưu phiên đăng nhập (tuỳ chọn)

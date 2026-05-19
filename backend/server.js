@@ -1,9 +1,11 @@
 const express = require('express');
-const cors = require('cors');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const db = require('./db');
+const cors    = require('cors');
+const bcrypt  = require('bcryptjs');
+const jwt     = require('jsonwebtoken');
+const path    = require('path');
+const db      = require('./db');
 require('dotenv').config();
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -42,9 +44,17 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Log mỗi request
+// ============================================================
+// SERVE FRONTEND TĨNH (thiết bị khác mở http://IP:3001)
+// ============================================================
+// Serve thư mục gốc project (một cấp trên thư mục backend)
+app.use(express.static(path.join(__dirname, '..')));
+
+// Log mỗi request (bỏ qua file tĩnh để console gọn)
 app.use((req, res, next) => {
-    console.log(`[${new Date().toLocaleTimeString('vi-VN')}] ${req.method} ${req.path}`);
+    if (req.path.startsWith('/api')) {
+        console.log(`[${new Date().toLocaleTimeString('vi-VN')}] ${req.method} ${req.path}`);
+    }
     next();
 });
 
@@ -318,8 +328,17 @@ app.put('/api/decks', authenticateToken, async (req, res) => {
                 for (let i = 0; i < deck.cards.length; i++) {
                     const card = deck.cards[i];
                     await conn.query(
-                        'INSERT INTO cards (deck_id, front, back, position) VALUES (?, ?, ?, ?)',
-                        [deckId, card.front || '', card.back || '', i]
+                        `INSERT INTO cards (deck_id, front, back, note, img, known, position)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            deckId,
+                            card.front || '',
+                            card.back  || '',
+                            card.note  || '',
+                            card.img   || '',
+                            card.known ? 1 : 0,
+                            i
+                        ]
                     );
                 }
             }
@@ -356,15 +375,34 @@ app.get('/api/admin/users', async (req, res) => {
 // ============================================================
 // KHỞI ĐỘNG SERVER
 // ============================================================
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
+    // Lấy IP LAN tự động
+    const { networkInterfaces } = require('os');
+    const nets = networkInterfaces();
+    let lanIP = 'localhost';
+    for (const iface of Object.values(nets)) {
+        for (const net of iface) {
+            if (net.family === 'IPv4' && !net.internal) {
+                lanIP = net.address;
+                break;
+            }
+        }
+        if (lanIP !== 'localhost') break;
+    }
+
     console.log('');
-    console.log('╔════════════════════════════════════════╗');
-    console.log('║     🚀 FlashCard API Server Started     ║');
-    console.log('╠════════════════════════════════════════╣');
-    console.log(`║  URL:  http://localhost:${PORT}           ║`);
-    console.log('║  API:  /api/auth/register               ║');
-    console.log('║        /api/auth/login                  ║');
-    console.log('║        /api/decks                       ║');
-    console.log('╚════════════════════════════════════════╝');
+    console.log('╔══════════════════════════════════════════════╗');
+    console.log('║       🚀 FlashCard API Server Started        ║');
+    console.log('╠══════════════════════════════════════════════╣');
+    console.log(`║  Máy này :  http://localhost:${PORT}              ║`);
+    console.log(`║  Thiết bị khác (cùng WiFi):                  ║`);
+    console.log(`║  👉  http://${lanIP}:${PORT}          ║`);
+    console.log('╠══════════════════════════════════════════════╣');
+    console.log('║  API: /api/auth/register  /api/auth/login    ║');
+    console.log('║       /api/auth/me        /api/decks         ║');
+    console.log('╚══════════════════════════════════════════════╝');
+    console.log('');
+    console.log(`📱 Thiết bị B: Mở trình duyệt → http://${lanIP}:${PORT}`);
     console.log('');
 });
+
