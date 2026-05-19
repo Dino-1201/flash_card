@@ -1,40 +1,53 @@
-// --- AUTHENTICATION LOGIC (LOCAL) ---
+// --- AUTHENTICATION LOGIC (MySQL Backend API) ---
+// API Server chạy tại: http://localhost:3001
 
+const API_URL = 'http://localhost:3001/api';
+
+// ============================================================
+// HELPER: Gọi API
+// ============================================================
+async function apiCall(endpoint, method = 'GET', body = null) {
+    const token = localStorage.getItem('fc_token');
+    const options = {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+    };
+    if (body) options.body = JSON.stringify(body);
+
+    try {
+        const res = await fetch(`${API_URL}${endpoint}`, options);
+        const data = await res.json();
+        return { ok: res.ok, status: res.status, ...data };
+    } catch (err) {
+        console.error('API Error:', err);
+        return { ok: false, message: '❌ Không kết nối được server! Hãy chắc chắn backend đang chạy.' };
+    }
+}
+
+// ============================================================
+// KHỞI TẠO AUTH
+// ============================================================
 function initAuthListener() {
     const userBtn = document.getElementById('user-login-btn');
     const userIcon = document.getElementById('user-btn-icon');
 
     if (currentUser) {
-        // Đã đăng nhập
         console.log("Logged In:", currentUser.username);
         document.getElementById('auth-overlay').classList.add('hidden');
 
-        // Update User Button
         userIcon.style.display = 'block';
         userIcon.innerText = (currentUser.name && currentUser.name[0] || currentUser.username[0]).toUpperCase();
         userBtn.title = `Đang đăng nhập: ${currentUser.name || currentUser.username}. Nhấn để đăng xuất.`;
 
-        // Load Data của User
-        const user = users.find(u => u.username === currentUser.username);
-        if (user) {
-            decks = user.decks || [];
-        }
-
-        // Ưu tiên load từ Firestore (Database) nếu có
-        if (typeof db !== 'undefined' && currentUser.uid) {
-            db.collection("users").doc(currentUser.uid).get().then(doc => {
-                if (doc.exists) {
-                    decks = doc.data().decks || [];
-                    console.log("Đã tải dữ liệu từ Database Firestore!");
-                    renderLibrary(); // Update UI sau khi load database
-                }
-            }).catch(e => console.error("Lỗi lấy dữ liệu DB: ", e));
-        }
+        // Load decks từ MySQL thông qua API
+        loadDecksFromDB();
 
         updateSidebarUser(currentUser);
         renderLibrary();
     } else {
-        // Chưa đăng nhập
         console.log("No User Session");
         userIcon.style.display = 'block';
         userIcon.innerText = '👤';
@@ -44,6 +57,35 @@ function initAuthListener() {
     }
 }
 
+// ============================================================
+// LOAD DECKS TỪ DATABASE
+// ============================================================
+async function loadDecksFromDB() {
+    const result = await apiCall('/decks');
+    if (result.ok && result.decks) {
+        decks = result.decks;
+        console.log(`✅ Đã tải ${decks.length} bộ thẻ từ MySQL!`);
+        renderLibrary();
+    }
+}
+
+// ============================================================
+// LƯU DECKS LÊN DATABASE (gọi sau mỗi thay đổi)
+// ============================================================
+async function saveDecksToDb() {
+    if (!currentUser) return;
+    const result = await apiCall('/decks', 'PUT', { decks });
+    if (result.ok) {
+        console.log('✅ Đã lưu decks lên MySQL!');
+    } else {
+        console.warn('⚠️ Lưu DB thất bại, fallback localStorage:', result.message);
+        saveAllUsers(); // fallback
+    }
+}
+
+// ============================================================
+// XỬ LÝ NÚT USER
+// ============================================================
 function handleUserBtnClick() {
     if (currentUser) {
         if (confirm(`Chào ${currentUser.username}! Bạn có muốn đăng xuất?`)) {
@@ -63,83 +105,93 @@ function checkAuthForFeature() {
     return true;
 }
 
-function handleLogin(e) {
+// ============================================================
+// ĐĂNG NHẬP
+// ============================================================
+async function handleLogin(e) {
     e.preventDefault();
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
 
-    const user = users.find(u => u.username === username);
+    showAuthError('');
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.innerText = 'Đang đăng nhập...'; }
 
-    if (user && user.password === password) {
-        currentUser = { username: user.username };
+    const result = await apiCall('/auth/login', 'POST', { username, password });
+
+    if (btn) { btn.disabled = false; btn.innerText = 'Đăng nhập'; }
+
+    if (result.ok) {
+        // Lưu token và thông tin user
+        localStorage.setItem('fc_token', result.token);
+        currentUser = result.user;
         saveCurrentSession();
         location.reload();
     } else {
-        showAuthError("Tên đăng nhập hoặc mật khẩu không chính xác.");
+        showAuthError(result.message || 'Đăng nhập thất bại!');
     }
 }
 
-function handleRegister(e) {
+// ============================================================
+// ĐĂNG KÝ
+// ============================================================
+async function handleRegister(e) {
     e.preventDefault();
-    const name = document.getElementById('reg-name').value.trim();
+    const name     = document.getElementById('reg-name').value.trim();
     const username = document.getElementById('reg-username').value.trim();
     const password = document.getElementById('reg-password').value;
-    const confirm = document.getElementById('reg-confirm-password').value;
+    const confirm  = document.getElementById('reg-confirm-password').value;
 
+    // Validate phía client
     if (password !== confirm) {
         return showAuthError("Mật khẩu nhập lại không khớp!");
     }
-
     if (username.length < 3) {
         return showAuthError("Tên đăng nhập phải có ít nhất 3 ký tự!");
     }
-
-    if (users.find(u => u.username === username)) {
-        return showAuthError("Tên đăng nhập này đã tồn tại.");
+    if (password.length < 6) {
+        return showAuthError("Mật khẩu phải có ít nhất 6 ký tự!");
     }
 
-    const newUser = {
-        name: name,
-        username: username,
-        password: password, // Trong thực tế, KHÔNG BAO GIỜ lưu mật khẩu plain text. Cần phải hash!
-        decks: []
-    };
+    showAuthError('');
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.innerText = 'Đang đăng ký...'; }
 
-    users.push(newUser);
-    saveAllUsers();
+    const result = await apiCall('/auth/register', 'POST', { name, username, password });
 
-    currentUser = { username: newUser.username, name: newUser.name };
-    saveCurrentSession();
-    location.reload();
+    if (btn) { btn.disabled = false; btn.innerText = 'Đăng ký'; }
+
+    if (result.ok) {
+        // Lưu token và tự động đăng nhập
+        localStorage.setItem('fc_token', result.token);
+        currentUser = result.user;
+        saveCurrentSession();
+        alert(`🎉 Chào mừng ${name}! Tài khoản đã được tạo thành công!`);
+        location.reload();
+    } else {
+        showAuthError(result.message || 'Đăng ký thất bại!');
+    }
 }
 
-// --- SOCIAL LOGIN (MÔ PHỎNG NẾU CHƯA CÓ FIREBASE) ---
+// ============================================================
+// SOCIAL LOGIN (Firebase - giữ nguyên logic cũ)
+// ============================================================
 function loginWithGoogle() {
     if (typeof auth !== 'undefined') {
-        // Thực thi Firebase Google Login
         const provider = new firebase.auth.GoogleAuthProvider();
         auth.signInWithPopup(provider).then((result) => {
             const user = result.user;
             currentUser = { username: user.email, name: user.displayName, isFirebase: true, uid: user.uid };
-            // Tạo tài khoản local nếu chưa có
-            if (!users.find(u => u.username === user.email)) {
-                users.push({...currentUser, decks: []});
-                saveAllUsers();
-            }
+            localStorage.setItem('fc_token', '');
             saveCurrentSession();
             location.reload();
         }).catch((error) => {
             showAuthError("Lỗi đăng nhập Google: " + error.message);
         });
     } else {
-        // Mô phỏng đăng nhập
         const fakeEmail = prompt("Nhập email Google mô phỏng:");
         if (fakeEmail) {
             currentUser = { username: fakeEmail, name: "Google User" };
-            if (!users.find(u => u.username === fakeEmail)) {
-                users.push({ username: fakeEmail, name: "Google User", decks: [] });
-                saveAllUsers();
-            }
             saveCurrentSession();
             location.reload();
         }
@@ -148,43 +200,44 @@ function loginWithGoogle() {
 
 function loginWithFacebook() {
     if (typeof auth !== 'undefined') {
-        // Thực thi Firebase Facebook Login
         const provider = new firebase.auth.FacebookAuthProvider();
         auth.signInWithPopup(provider).then((result) => {
             const user = result.user;
             currentUser = { username: user.email || user.uid, name: user.displayName, isFirebase: true, uid: user.uid };
-            if (!users.find(u => u.username === currentUser.username)) {
-                users.push({...currentUser, decks: []});
-                saveAllUsers();
-            }
             saveCurrentSession();
             location.reload();
         }).catch((error) => {
             showAuthError("Lỗi đăng nhập Facebook: " + error.message);
         });
     } else {
-         // Mô phỏng đăng nhập
-         const fakeName = prompt("Nhập tên tài khoản Facebook mô phỏng:");
-         if (fakeName) {
-             currentUser = { username: fakeName.replace(/\s/g,'').toLowerCase(), name: fakeName };
-             if (!users.find(u => u.username === currentUser.username)) {
-                 users.push({ username: currentUser.username, name: currentUser.name, decks: [] });
-                 saveAllUsers();
-             }
-             saveCurrentSession();
-             location.reload();
-         }
+        const fakeName = prompt("Nhập tên tài khoản Facebook mô phỏng:");
+        if (fakeName) {
+            currentUser = { username: fakeName.replace(/\s/g,'').toLowerCase(), name: fakeName };
+            saveCurrentSession();
+            location.reload();
+        }
     }
 }
 
+// ============================================================
+// ĐĂNG XUẤT
+// ============================================================
 function logout() {
+    localStorage.removeItem('fc_token');
     currentUser = null;
     saveCurrentSession();
     location.reload();
 }
 
+// ============================================================
+// UI HELPERS
+// ============================================================
 function showAuthError(msg) {
     const el = document.getElementById('auth-error');
+    if (!msg) {
+        el.classList.add('hidden');
+        return;
+    }
     el.innerText = msg;
     el.classList.remove('hidden');
 }
@@ -218,7 +271,7 @@ function updateSidebarUser(user) {
             <div class="user-avatar">${avatarLetter}</div>
             <div class="user-details">
                 <div class="user-name">${displayName}</div>
-                <div class="user-email">${user.isFirebase ? 'Tài khoản mxh' : 'Tài khoản cục bộ'}</div>
+                <div class="user-email">${user.auth_type === 'local' ? '📧 Tài khoản cục bộ' : '🌐 Tài khoản mxh'}</div>
             </div>
             <button onclick="logout()" style="background:none; border:none; color: #ef4444; cursor:pointer;" title="Đăng xuất">↪️</button>
         </div>
